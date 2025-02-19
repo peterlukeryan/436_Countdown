@@ -1,4 +1,10 @@
 package com.zybooks.countdowntimer
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import android.util.Log
+import androidx.activity.result.contract.ActivityResultContracts
+
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -13,6 +19,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.core.app.ActivityCompat
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkRequest
@@ -23,6 +30,13 @@ import com.zybooks.countdowntimer.ui.theme.CountdownTimerTheme
 
 class MainActivity : ComponentActivity() {
 
+   private val permissionRequestLauncher =
+      registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+         val message = if (isGranted) "Permission granted" else "Permission NOT granted"
+         Log.i("MainActivity", message)
+      }
+
+
    private val timerViewModel = TimerViewModel()
 
    override fun onStop() {
@@ -30,7 +44,15 @@ class MainActivity : ComponentActivity() {
 
       // Start TimerWorker if the timer is running
       if (timerViewModel.isRunning) {
-         startWorker(timerViewModel.remainingMillis)
+         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ActivityCompat.checkSelfPermission(this,
+                  Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
+               startWorker(timerViewModel.remainingMillis)
+            }
+         } else {
+            startWorker(timerViewModel.remainingMillis)
+         }
+
       }
    }
 
@@ -45,6 +67,7 @@ class MainActivity : ComponentActivity() {
       WorkManager.getInstance(applicationContext).enqueue(timerWorkRequest)
    }
    override fun onCreate(savedInstanceState: Bundle?) {
+
       super.onCreate(savedInstanceState)
       enableEdgeToEdge()
       setContent {
@@ -57,6 +80,13 @@ class MainActivity : ComponentActivity() {
             }
          }
       }
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+         if (ActivityCompat.checkSelfPermission(this,
+               Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_DENIED) {
+            permissionRequestLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+         }
+      }
+
    }
 }
 
